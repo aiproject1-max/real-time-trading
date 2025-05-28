@@ -2,82 +2,68 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import matplotlib.pyplot as plt
-import random
-from datetime import datetime
+import yfinance as yf
 import asyncio
 import time
 
 st.set_page_config(page_title="Async Trading Dashboard", layout="wide")
 
 # Initialize session state
-if "data" not in st.session_state:
-    st.session_state.data = pd.DataFrame({
-        "Time": pd.Series(dtype="str"),
-        "Price": pd.Series(dtype="float")
-    })
-
 if "auto_refresh" not in st.session_state:
     st.session_state.auto_refresh = True
-
-if "last_update" not in st.session_state:
-    st.session_state.last_update = time.time()
+if "last_tnx_update" not in st.session_state:
+    st.session_state.last_tnx_update = 0
 
 st.title("📈 Async Trading Dashboard")
 
-# Toggle for auto refresh
-st.checkbox("🔄 Auto Refresh (async, 1s)", key="auto_refresh")
+# Auto-refresh toggle
+st.checkbox("🔄 Auto Refresh (every 10s)", key="auto_refresh")
 
-# Simulate PnL
-pnl = random.randint(-1000, 1000)
-st.metric("Real-Time PnL", f"${pnl}")
+# Fetch TNX (10Y Treasury Yield) real-time data
+@st.cache_data(ttl=60)
+def fetch_tnx_chart():
+    tnx = yf.Ticker("^TNX")
+    tnx_data = tnx.history(period="3d", interval="1m")
+    tnx_data.reset_index(inplace=True)
+    return tnx_data
 
-# Simulate price
-now = datetime.now().strftime("%H:%M:%S")
-price = 100 + random.uniform(-1, 1) + 0.1 * len(st.session_state.data)
-new_row = pd.DataFrame({"Time": [now], "Price": [price]})
+# Fetch and plot
+tnx_data = fetch_tnx_chart()
 
-# Append price point safely
-if not st.session_state.data.empty and not new_row.empty:
-    st.session_state.data = pd.concat(
-        [st.session_state.data, new_row], ignore_index=True
-    ).tail(100)
-else:
-    st.session_state.data = new_row
-
-# 📊 Top Plot - Plotly
-st.subheader("📊 Interactive Price Stream (Plotly)")
+# Top Plot - Plotly
+st.subheader("📊 CBOE 10-Year Treasury Yield (Real-Time, Plotly)")
 fig_plotly = go.Figure()
 fig_plotly.add_trace(go.Scatter(
-    x=st.session_state.data["Time"],
-    y=st.session_state.data["Price"],
+    x=tnx_data["Datetime"],
+    y=tnx_data["Close"],
     mode="lines+markers",
-    line=dict(color="royalblue"),
-    marker=dict(size=6),
-    name="Price"
+    line=dict(color="firebrick"),
+    marker=dict(size=4),
+    name="10Y Yield"
 ))
 fig_plotly.update_layout(
     xaxis_title="Time",
-    yaxis_title="Price",
+    yaxis_title="Yield (%)",
     margin=dict(l=40, r=20, t=40, b=40),
     height=400,
 )
 st.plotly_chart(fig_plotly, use_container_width=True)
 
-# 📉 Bottom Plot - Matplotlib
-st.subheader("📉 Static Price Stream (Matplotlib)")
+# Bottom Plot - Matplotlib
+st.subheader("📉 Static Chart View (Matplotlib)")
 fig_mpl, ax = plt.subplots()
-ax.plot(st.session_state.data["Time"], st.session_state.data["Price"], marker="o")
+ax.plot(tnx_data["Datetime"], tnx_data["Close"], marker="o", color="firebrick")
 ax.set_xlabel("Time")
-ax.set_ylabel("Price")
+ax.set_ylabel("Yield (%)")
 ax.tick_params(axis='x', rotation=45)
 st.pyplot(fig_mpl)
 
-# Async refresh loop using asyncio.sleep
+# Async refresh
 async def maybe_rerun():
-    await asyncio.sleep(1)
-    st.session_state.last_update = time.time()
+    await asyncio.sleep(10)
+    st.session_state.last_tnx_update = time.time()
     st.rerun()
 
-# Trigger refresh if auto-refresh is on
+# Trigger refresh
 if st.session_state.auto_refresh:
     asyncio.run(maybe_rerun())
