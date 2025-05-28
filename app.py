@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import random
 from datetime import datetime
-import time
+import asyncio
 
 st.set_page_config(page_title="Trading Dashboard", layout="wide")
 
@@ -14,11 +14,8 @@ if "data" not in st.session_state:
         "Price": pd.Series(dtype="float")
     })
 
-if "last_update" not in st.session_state:
-    st.session_state.last_update = time.time()
-
 # Title
-st.title("📈 Real-Time Trading Dashboard")
+st.title("📈 Real-Time Trading Dashboard (Async Refresh)")
 
 # Simulate PnL
 pnl = random.randint(-1000, 1000)
@@ -35,7 +32,7 @@ if not st.session_state.data.empty and not new_row.empty:
 else:
     st.session_state.data = new_row
 
-# Chart
+# Draw chart
 st.subheader("📊 Price Stream")
 fig, ax = plt.subplots()
 ax.plot(st.session_state.data["Time"], st.session_state.data["Price"], marker="o")
@@ -44,9 +41,10 @@ ax.set_ylabel("Price")
 ax.tick_params(axis='x', rotation=45)
 st.pyplot(fig)
 
-# Autorefresh every second
-# Simple timer-based rerun approach
-current_time = time.time()
-if current_time - st.session_state.last_update > 1:
-    st.session_state.last_update = current_time
+# Async autorefresh (wait 1 second then rerun)
+async def auto_refresh():
+    await asyncio.sleep(1)
     st.experimental_rerun()
+
+# Trigger refresh
+asyncio.run(auto_refresh())
