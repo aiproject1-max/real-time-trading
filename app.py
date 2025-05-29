@@ -25,6 +25,8 @@ def fetch_tnx_chart():
     tnx = yf.Ticker("^TNX")
     tnx_data = tnx.history(period="3d", interval="1m")
     tnx_data.reset_index(inplace=True)
+    tnx_data = tnx_data[tnx_data["Datetime"].dt.weekday < 5]
+    tnx_data["Datetime"] = tnx_data["Datetime"].dt.strftime("%m-%d %H:%M")
     return tnx_data
 
 # Fetch and plot
@@ -46,6 +48,7 @@ fig_plotly.update_layout(
     yaxis_title="Yield (%)",
     margin=dict(l=40, r=20, t=40, b=40),
     height=400,
+    xaxis=dict(type="category")
 )
 st.plotly_chart(fig_plotly, use_container_width=True)
 
@@ -60,7 +63,7 @@ st.pyplot(fig_mpl)
 
 # Async refresh
 async def maybe_rerun():
-    await asyncio.sleep(10)
+    await asyncio.sleep(60)
     st.session_state.last_tnx_update = time.time()
     st.rerun()
 
